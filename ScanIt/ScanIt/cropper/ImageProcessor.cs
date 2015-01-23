@@ -46,6 +46,18 @@ namespace com.bytewild.imaging.cropper
            }
         }
 
+        public MCvBox2D GetCropBox()
+        {
+            using (var image = new Image<Bgr, Byte>(imageBitmap))
+            {
+                using (var edgeImage = GetImageAsEdges(image))
+                {
+                    var boxes = GetQuadrilaterals(edgeImage);
+                    return GetLargestQuadrilateral(boxes);
+                }
+            }
+        }
+
         public Image<Gray, Byte> GetImageAsEdges(Image<Bgr, Byte> image)
         {
             // Convert to GreyScale
