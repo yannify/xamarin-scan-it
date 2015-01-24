@@ -187,13 +187,12 @@ namespace com.bytewild.imaging.cropper
             //RectF cropRect = new RectF(x, y, x + cropWidth, y + cropHeight);
             var edgeDetector = new ImageProcessor(bitmap);
             RectF cropRect = edgeDetector.GetCropRect();
-            CropView.Setup(imageView.ImageMatrix, imageRect, cropRect, aspectX != 0 && aspectY != 0);
+            MCvBox2D cropBox = edgeDetector.GetCropBox();
+            CropView.Setup(imageView.ImageMatrix, imageRect, cropRect, cropBox, aspectX != 0 && aspectY != 0);
 
             imageView.ClearHighlightViews();
-            CropView.Focused = true;
+            CropView.Focused = false;
 
-            var foo = cropRect.Height();
-            var bar = cropRect.Width();
             imageView.AddHighlightView(CropView);
         }
 

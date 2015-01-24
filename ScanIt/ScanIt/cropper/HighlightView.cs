@@ -17,7 +17,10 @@
 using Android.Graphics;
 using Android.Graphics.Drawables;
 using Android.Views;
+using Emgu.CV.Structure;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace com.bytewild.imaging.cropper
 {
@@ -36,8 +39,10 @@ namespace com.bytewild.imaging.cropper
         private ModifyMode mode = ModifyMode.None;
 
         private RectF imageRect;  // in image space
-        private RectF cropRect;  // in image space
+        private RectF cropRect;  // in image space -- TODO: will become obsolete
+        private MCvBox2D cropBox; // in image space
         public Matrix matrix;
+
 
         private bool maintainAspectRatio = false;
         private float initialAspectRatio;
@@ -46,7 +51,7 @@ namespace com.bytewild.imaging.cropper
         private Drawable resizeDrawableHeight;
 
         private Drawable resizeDrawableHandle;
-
+        public List<CropHandle> CropHandles { get; set; }
 
         private Paint focusPaint = new Paint();
         private Paint noFocusPaint = new Paint();
@@ -102,6 +107,21 @@ namespace com.bytewild.imaging.cropper
             }
         }
 
+        public float[] CropBoxDrawPoints  // in screen space
+        {
+            get;
+            private set;
+        }
+
+        // Returns the cropping box in image space.
+        public MCvBox2D CropBox
+        {
+            get
+            {
+                return cropBox;
+            }
+        }
+
         public ModifyMode Mode
         {
             get
@@ -124,8 +144,21 @@ namespace com.bytewild.imaging.cropper
 
         // Handles motion (dx, dy) in screen space.
         // The "edge" parameter specifies which edges the user is dragging.
-        public void HandleMotion(HitPosition edge, float dx, float dy)
+        public void HandleMotion(float dx, float dy, int position)
         {
+            int handleHeight = resizeDrawableHandle.IntrinsicHeight / 2;
+            int handleWidth = resizeDrawableHandle.IntrinsicWidth / 2;
+
+            CropHandles[position] = new CropHandle(position, (int)dx, (int)dy, new Rect((int)dx - handleWidth, (int)dy - handleHeight, (int)dx + handleWidth, (int)dy + handleHeight));
+
+            context.Invalidate();
+        }
+
+        public void HandleMotion(HitPosition edge, float dx, float dy)  // TODO:  is old method
+        {
+            // new
+            float[] b = ComputeBoxLayout();
+
             Rect r = computeLayout();
             if (edge == HitPosition.None)
             {
@@ -158,7 +191,7 @@ namespace com.bytewild.imaging.cropper
             }
         }
 
-        public void Draw(Canvas canvas)
+        public void Draw(Canvas canvas, bool isOldMethod)
         {
             if (Hidden)
             {
@@ -166,7 +199,6 @@ namespace com.bytewild.imaging.cropper
             }
 
             canvas.Save();
-
 
             if (!Focused)
             {
@@ -251,9 +283,154 @@ namespace com.bytewild.imaging.cropper
             }
         }
 
-        // Determines which edges are hit by touching at (x, y).
-        public HitPosition GetHit(float x, float y)
+        public void Draw(Canvas canvas)
         {
+            canvas.Save();
+
+            Rect viewDrawingRect = new Rect();
+            context.GetDrawingRect(viewDrawingRect);
+
+            outlinePaint.Color = Color.White; // Color.Blue;// new Color(0XFF, 0xFF, 0x8A, 0x00);
+            focusPaint.Color = new Color(50, 50, 50, 125);
+
+            Path path = new Path();
+
+            // Stuff to show the handles
+            int handleHeight = resizeDrawableHandle.IntrinsicHeight / 2;
+            int handleWidth = resizeDrawableHandle.IntrinsicWidth / 2;
+
+            if (CropHandles.Count == 0)
+            {
+                //var verts = ConvexHull.CH2(new List<System.Drawing.PointF>(cropBox.GetVertices()));
+                //verts.RemoveAt(verts.Count - 1);
+
+                var verts = GetVerticesFromPoints(CropBoxDrawPoints);
+                verts.RemoveAt(verts.Count - 1);
+
+                bool firstPass = true;
+                CropHandle cropHandle;
+
+                for (var i = 0; i < verts.Count; i++)
+                {
+                    if (firstPass)
+                    {
+                        firstPass = false;
+                        path.MoveTo(verts[i].X, verts[i].Y);
+                    }
+                    path.LineTo(verts[i].X, verts[i].Y);
+
+                    cropHandle = new CropHandle(i, (int)verts[i].X, (int)verts[i].Y, new Rect((int)verts[i].X - handleWidth, (int)verts[i].Y - handleHeight, (int)verts[i].X + handleWidth, (int)verts[i].Y + handleHeight));
+                    CropHandles.Add(cropHandle);
+                    resizeDrawableHandle.SetBounds(cropHandle.Handle.Left, cropHandle.Handle.Top, cropHandle.Handle.Right, cropHandle.Handle.Bottom);
+                    resizeDrawableHandle.Draw(canvas);
+                }
+                // draw one last line to close the gap
+                path.LineTo(verts[0].X, verts[0].Y);
+            }
+            else
+            {
+                bool firstPass = true;
+                foreach (var ch in CropHandles)
+                {
+                    if (firstPass)
+                    {
+                        firstPass = false;
+                        path.MoveTo(ch.X, ch.Y);
+                    }
+                    path.LineTo(ch.X, ch.Y);
+
+                    resizeDrawableHandle.SetBounds(ch.Handle.Left, ch.Handle.Top, ch.Handle.Right, ch.Handle.Bottom);
+                    resizeDrawableHandle.Draw(canvas);
+                }
+                // draw one last line to close the gap
+                path.LineTo(CropHandles[0].X, CropHandles[0].Y);
+            }
+
+            canvas.ClipPath(path, Region.Op.Difference);
+            canvas.DrawRect(viewDrawingRect, focusPaint);
+
+            canvas.Restore();
+            canvas.DrawPath(path, outlinePaint);
+        }
+
+        public void Draw(Canvas canvas, string obsoleteMethod)
+        {
+            canvas.Save();
+
+            // old way
+            Rect viewDrawingRect = new Rect();
+            context.GetDrawingRect(viewDrawingRect);
+
+            outlinePaint.Color = Color.White;// new Color(0XFF, 0xFF, 0x8A, 0x00);
+            focusPaint.Color = new Color(50, 50, 50, 125);
+
+            Path path = new Path();
+            path.AddRect(new RectF(DrawRect), Path.Direction.Cw);
+
+            canvas.ClipPath(path, Region.Op.Difference);
+            canvas.DrawRect(viewDrawingRect, focusPaint);
+
+            canvas.Restore();
+            canvas.DrawPath(path, outlinePaint);
+
+            // new way
+            outlinePaint.Color = Color.Blue;// new Color(0XFF, 0xFF, 0x8xamarin-scan-itA, 0x00);
+
+            Path pathNew = new Path();
+
+            // Stuff to show the handles
+            int handleHeight = resizeDrawableHandle.IntrinsicHeight / 2;
+            int handleWidth = resizeDrawableHandle.IntrinsicWidth / 2;
+
+           // var verts = ConvexHull.CH2(new List<System.Drawing.PointF>(cropBox.GetVertices()));
+            var foo = ConvexHull.CH2(new List<System.Drawing.PointF>(cropBox.GetVertices()));
+            var verts = GetVerticesFromPoints(CropBoxDrawPoints);
+            verts.RemoveAt(verts.Count - 1);
+
+            bool firstPass = true;
+            CropHandle cropHandle;
+
+            for (var i = 0; i < verts.Count; i++)
+            {
+                if (firstPass)
+                {
+                    firstPass = false;
+                    pathNew.MoveTo(verts[i].X, verts[i].Y);
+                }
+                pathNew.LineTo(verts[i].X, verts[i].Y);
+
+                cropHandle = new CropHandle(i, (int)verts[i].X, (int)verts[i].Y, new Rect((int)verts[i].X - handleWidth, (int)verts[i].Y - handleHeight, (int)verts[i].X + handleWidth, (int)verts[i].Y + handleHeight));
+                CropHandles.Add(cropHandle);
+                resizeDrawableHandle.SetBounds(cropHandle.Handle.Left, cropHandle.Handle.Top, cropHandle.Handle.Right, cropHandle.Handle.Bottom);
+                resizeDrawableHandle.Draw(canvas);
+            }
+            // draw one last line to close the gap
+            pathNew.LineTo(verts[0].X, verts[0].Y);
+
+            canvas.ClipPath(pathNew, Region.Op.Difference);
+            canvas.DrawRect(viewDrawingRect, focusPaint);
+
+            canvas.Restore();
+            canvas.DrawPath(pathNew, outlinePaint);
+        }
+
+        // Determines which edges are hit by touching at (x, y).
+        public CropHandle GetHit(float x, float y)
+        {
+            // determine if we are touching a crop handle
+            foreach (var ch in CropHandles)
+            {
+                if (ch.Handle.Contains((int)x, (int)y))
+                    return ch;
+            }
+
+            return null;
+        }
+        public HitPosition GetHit(float x, float y, bool IsOldMethod)
+        {
+            // new
+            float[] b = ComputeBoxLayout();
+
             Rect r = computeLayout();
             float hysteresis = 20F;
             var retval = HitPosition.None;
@@ -296,18 +473,24 @@ namespace com.bytewild.imaging.cropper
         public void Invalidate()
         {
             DrawRect = computeLayout();
+
+            // new
+            CropBoxDrawPoints = ComputeBoxLayout();
         }
 
-        public void Setup(Matrix m, Rect imageRect, RectF cropRect, bool maintainAspectRatio)
+        // TODO:  We dont really want both a croprect and cropbox
+        public void Setup(Matrix m, Rect imageRect, RectF cropRect, MCvBox2D cropBox, bool maintainAspectRatio)
         {
             matrix = new Matrix(m);
 
             this.cropRect = cropRect;
+            this.cropBox = cropBox;
             this.imageRect = new RectF(imageRect);
             this.maintainAspectRatio = maintainAspectRatio;
 
             initialAspectRatio = cropRect.Width() / cropRect.Height();
             DrawRect = computeLayout();
+            CropBoxDrawPoints = ComputeBoxLayout();
 
             focusPaint.SetARGB(125, 50, 50, 50);
             noFocusPaint.SetARGB(125, 50, 50, 50);
@@ -327,10 +510,15 @@ namespace com.bytewild.imaging.cropper
         {
             var resources = context.Resources;
 
+            // old
             resizeDrawableWidth = resources.GetDrawable(Resource.Drawable.camera_crop_width);
             resizeDrawableHeight = resources.GetDrawable(Resource.Drawable.camera_crop_height);
 
+            // new 
             resizeDrawableHandle = resources.GetDrawable(Resource.Drawable.camera_crop_handle);
+            CropHandles = new List<CropHandle>();
+
+            
         }
 
         // Grows the cropping rectange by (dx, dy) in image space.
@@ -350,6 +538,10 @@ namespace com.bytewild.imaging.cropper
                 Math.Min(0, imageRect.Bottom - cropRect.Bottom));
 
             DrawRect = computeLayout();
+
+            // new
+            CropBoxDrawPoints = ComputeBoxLayout();
+
             invalRect.Union(DrawRect);
             invalRect.Inset(-10, -10);
             context.Invalidate(invalRect);
@@ -430,6 +622,10 @@ namespace com.bytewild.imaging.cropper
 
             cropRect.Set(r);
             DrawRect = computeLayout();
+
+            // new
+            CropBoxDrawPoints = ComputeBoxLayout();
+
             context.Invalidate();
         }
 
@@ -439,8 +635,43 @@ namespace com.bytewild.imaging.cropper
             RectF r = new RectF(cropRect.Left, cropRect.Top,
                                 cropRect.Right, cropRect.Bottom);
             matrix.MapRect(r);
-            return new Rect((int)Math.Round(r.Left), (int)Math.Round(r.Top),
+
+            var p = new Rect((int)Math.Round(r.Left), (int)Math.Round(r.Top),
                             (int)Math.Round(r.Right), (int)Math.Round(r.Bottom));
+            return p;
+        }
+
+        private float[] ComputeBoxLayout()
+        {
+           
+            var verts = ConvexHull.CH2(new List<System.Drawing.PointF>(cropBox.GetVertices()));
+            var points = new float[(verts.Count * 2)];
+
+            int i = 0;
+            foreach(var v in verts)
+            {
+                points[i++] = v.X;
+                points[i++] = v.Y;
+            }
+
+            matrix.MapPoints(points);
+
+            return points;
+        }
+
+        private List<System.Drawing.PointF> GetVerticesFromPoints(float[] points)
+        {
+            // TODO:  This is ugly
+            var verts = ConvexHull.CH2(new List<System.Drawing.PointF>(cropBox.GetVertices()));
+            var cp = verts.ToArray();
+            int i = 0;
+            for (int j = 0; j < cp.Length; j++ )
+            {
+                cp[j].X = points[i++];
+                cp[j].Y = points[i++];
+            }
+
+            return cp.ToList();       
         }
 
         #endregion

@@ -31,6 +31,7 @@ namespace com.bytewild.imaging.cropper
         private HighlightView mMotionHighlightView = null;
         private float mLastX;
         private float mLastY;
+        private CropHandle mLastCropHandle;
         private global::com.bytewild.imaging.cropper.HighlightView.HitPosition motionEdge;
         private Context context;
 
@@ -137,6 +138,46 @@ namespace com.bytewild.imaging.cropper
         public override bool OnTouchEvent(MotionEvent ev)
         {
             CropImageActivity cropImageActivity = (CropImageActivity)context;
+
+            switch (ev.Action)
+            {
+                case MotionEventActions.Down:
+
+                    for (int i = 0; i < hightlightViews.Count; i++)
+                    {
+                        HighlightView hv = hightlightViews[i];
+                        var cropHandle = hv.GetHit(ev.GetX(), ev.GetY());
+                        if (cropHandle != null)
+                        {
+                            mMotionHighlightView = hv;
+                            mLastX = ev.GetX();
+                            mLastY = ev.GetY();
+                            mLastCropHandle = cropHandle;
+                            break;
+                        }
+                    }
+                    break;
+
+                case MotionEventActions.Up:
+
+                    break;
+
+                case MotionEventActions.Move:
+                    if (mMotionHighlightView != null)
+                    {
+                        mMotionHighlightView.HandleMotion(ev.GetX(), ev.GetY(), mLastCropHandle.Postion);
+                    }
+                    break;
+
+
+            }
+
+            return true;
+        }
+
+        public bool OnTouchEvent(MotionEvent ev, bool IsOldMethod)  // TODO:  was override
+        {
+            CropImageActivity cropImageActivity = (CropImageActivity)context;
             if (cropImageActivity.Saving)
             {
                 return false;
@@ -150,18 +191,19 @@ namespace com.bytewild.imaging.cropper
                     {
                         HighlightView hv = hightlightViews[i];
                         var edge = hv.GetHit(ev.GetX(), ev.GetY());
-                        if (edge != global::com.bytewild.imaging.cropper.HighlightView.HitPosition.None)
-                        {
-                            motionEdge = edge;
-                            mMotionHighlightView = hv;
-                            mLastX = ev.GetX();
-                            mLastY = ev.GetY();
-                            mMotionHighlightView.Mode =
-                                (edge == global::com.bytewild.imaging.cropper.HighlightView.HitPosition.Move)
-                                ? HighlightView.ModifyMode.Move
-                                : HighlightView.ModifyMode.Grow;
-                            break;
-                        }
+                        // TODO: Review and uncomment when we fix ontouchevent
+                        //if (edge != global::com.bytewild.imaging.cropper.HighlightView.HitPosition.None)
+                        //{
+                        //    motionEdge = edge;
+                        //    mMotionHighlightView = hv;
+                        //    mLastX = ev.GetX();
+                        //    mLastY = ev.GetY();
+                        //    mMotionHighlightView.Mode =
+                        //        (edge == global::com.bytewild.imaging.cropper.HighlightView.HitPosition.Move)
+                        //        ? HighlightView.ModifyMode.Move
+                        //        : HighlightView.ModifyMode.Grow;
+                        //    break;
+                        //}
                     }
                     break;
 
