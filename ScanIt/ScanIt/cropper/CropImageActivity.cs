@@ -82,7 +82,7 @@ namespace com.bytewild.imaging.cropper
 
             imageView = FindViewById<CropImageView>(Resource.Id.image);
 
-            showStorageToast(this);
+            ShowStorageToast(this);
 
             Bundle extras = Intent.Extras;
 
@@ -90,13 +90,13 @@ namespace com.bytewild.imaging.cropper
             {
                 imagePath = extras.GetString("image-path");
 
-                saveUri = getImageUri(imagePath);
+                saveUri = GetImageUri(imagePath);
                 if (extras.GetString(MediaStore.ExtraOutput) != null)
                 {
-                    saveUri = getImageUri(extras.GetString(MediaStore.ExtraOutput));
+                    saveUri = GetImageUri(extras.GetString(MediaStore.ExtraOutput));
                 }
 
-                bitmap = getBitmap(imagePath);
+                bitmap = GetBitmap(imagePath);
 
                 aspectX = extras.GetInt("aspectX");
                 aspectY = extras.GetInt("aspectY");
@@ -120,14 +120,14 @@ namespace com.bytewild.imaging.cropper
             Window.AddFlags(WindowManagerFlags.Fullscreen);
 
             FindViewById<Button>(Resource.Id.discard).Click += (sender, e) => { SetResult(Result.Canceled); Finish(); };
-            FindViewById<Button>(Resource.Id.save).Click += (sender, e) => { onSaveClicked(); };
+            FindViewById<Button>(Resource.Id.save).Click += (sender, e) => { OnSaveClicked(); };
 
             FindViewById<Button>(Resource.Id.rotateLeft).Click += (o, e) =>
             {
                 bitmap = Util.rotateImage(bitmap, -90);
                 RotateBitmap rotateBitmap = new RotateBitmap(bitmap);
                 imageView.SetImageRotateBitmapResetBase(rotateBitmap, true);
-                addHighlightView();
+                AddHighlightView();
             };
 
             FindViewById<Button>(Resource.Id.rotateRight).Click += (o, e) =>
@@ -135,11 +135,11 @@ namespace com.bytewild.imaging.cropper
                 bitmap = Util.rotateImage(bitmap, 90);
                 RotateBitmap rotateBitmap = new RotateBitmap(bitmap);
                 imageView.SetImageRotateBitmapResetBase(rotateBitmap, true);
-                addHighlightView();
+                AddHighlightView();
             };
 
             imageView.SetImageBitmapResetBase(bitmap, true);
-            addHighlightView();
+            AddHighlightView();
         }
 
         protected override void OnDestroy()
@@ -155,7 +155,7 @@ namespace com.bytewild.imaging.cropper
 
         #region Private helpers
 
-        private void addHighlightView()
+        private void AddHighlightView()
         {
             CropView = new HighlightView(imageView);
 
@@ -196,14 +196,14 @@ namespace com.bytewild.imaging.cropper
             imageView.AddHighlightView(CropView);
         }
 
-        private Android.Net.Uri getImageUri(String path)
+        private Android.Net.Uri GetImageUri(String path)
         {
             return Android.Net.Uri.FromFile(new Java.IO.File(path));
         }
 
-        private Bitmap getBitmap(String path)
+        private Bitmap GetBitmap(String path)
         {
-            var uri = getImageUri(path);
+            var uri = GetImageUri(path);
             System.IO.Stream ins = null;
 
             try
@@ -240,7 +240,7 @@ namespace com.bytewild.imaging.cropper
             return null;
         }
 
-        private void onSaveClicked()
+        private void OnSaveClicked()
         {
             // TODO this code needs to change to use the decode/crop/encode single
             // step api so that we don't require that the whole (possibly large)
@@ -323,11 +323,11 @@ namespace com.bytewild.imaging.cropper
             else
             {
                 Bitmap b = croppedImage;
-                BackgroundJob.StartBackgroundJob(this, null, "Saving image", () => saveOutput(b), mHandler);
+                BackgroundJob.StartBackgroundJob(this, null, "Saving image", () => SaveOutput(b), mHandler);
             }
         }
 
-        private void saveOutput(Bitmap croppedImage)
+        private void SaveOutput(Bitmap croppedImage)
         {
             if (saveUri != null)
             {
@@ -358,12 +358,12 @@ namespace com.bytewild.imaging.cropper
             Finish();
         }
 
-        private static void showStorageToast(Activity activity)
+        private static void ShowStorageToast(Activity activity)
         {
-            showStorageToast(activity, calculatePicturesRemaining());
+            ShowStorageToast(activity, CalculatePicturesRemaining());
         }
 
-        private static void showStorageToast(Activity activity, int remaining)
+        private static void ShowStorageToast(Activity activity, int remaining)
         {
             string noStorageText = null;
 
@@ -390,7 +390,7 @@ namespace com.bytewild.imaging.cropper
             }
         }
 
-        private static int calculatePicturesRemaining()
+        private static int CalculatePicturesRemaining()
         {
             try
             {
