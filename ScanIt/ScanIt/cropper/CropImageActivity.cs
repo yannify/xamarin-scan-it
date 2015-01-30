@@ -187,8 +187,8 @@ namespace com.bytewild.imaging.cropper
             //RectF cropRect = new RectF(x, y, x + cropWidth, y + cropHeight);
             var edgeDetector = new ImageProcessor(bitmap);
             RectF cropRect = edgeDetector.GetCropRect();
-            MCvBox2D cropBox = edgeDetector.GetCropBox();
-            CropView.Setup(imageView.ImageMatrix, imageRect, cropRect, cropBox, aspectX != 0 && aspectY != 0);
+            CropPolygon cropPolygon = edgeDetector.GetCropPolygon();
+            CropView.Setup(imageView.ImageMatrix, imageRect, cropRect, cropPolygon, aspectX != 0 && aspectY != 0);
 
             imageView.ClearHighlightViews();
             CropView.Focused = false;
@@ -241,6 +241,93 @@ namespace com.bytewild.imaging.cropper
         }
 
         private void OnSaveClicked()
+        {
+            // TODO this code needs to change to use the decode/crop/encode single
+            // step api so that we don't require that the whole (possibly large)
+            // bitmap doesn't have to be read into memory
+            if (Saving)
+            {
+                return;
+            }
+
+            Saving = true;
+
+            var r = CropView.CropRect;
+
+            int width = r.Width();
+            int height = r.Height();
+
+            Bitmap croppedImage = Bitmap.CreateBitmap(width, height, Bitmap.Config.Rgb565);
+            {
+                Canvas canvas = new Canvas(croppedImage);
+                Rect dstRect = new Rect(0, 0, width, height);
+                canvas.DrawBitmap(bitmap, r, dstRect, null);
+            }
+
+            // If the output is required to a specific size then scale or fill
+            if (outputX != 0 && outputY != 0)
+            {
+                if (scale)
+                {
+                    // Scale the image to the required dimensions
+                    Bitmap old = croppedImage;
+                    croppedImage = Util.transform(new Matrix(),
+                                                  croppedImage, outputX, outputY, scaleUp);
+                    if (old != croppedImage)
+                    {
+                        old.Recycle();
+                    }
+                }
+                else
+                {
+                    // Don't scale the image crop it to the size requested.
+                    // Create an new image with the cropped image in the center and
+                    // the extra space filled.              
+                    Bitmap b = Bitmap.CreateBitmap(outputX, outputY,
+                                                   Bitmap.Config.Rgb565);
+                    Canvas canvas = new Canvas(b);
+
+                    Rect srcRect = CropView.CropRect;
+                    Rect dstRect = new Rect(0, 0, outputX, outputY);
+
+                    int dx = (srcRect.Width() - dstRect.Width()) / 2;
+                    int dy = (srcRect.Height() - dstRect.Height()) / 2;
+
+                    // If the srcRect is too big, use the center part of it.
+                    srcRect.Inset(Math.Max(0, dx), Math.Max(0, dy));
+
+                    // If the dstRect is too big, use the center part of it.
+                    dstRect.Inset(Math.Max(0, -dx), Math.Max(0, -dy));
+
+                    // Draw the cropped bitmap in the center
+                    canvas.DrawBitmap(bitmap, srcRect, dstRect, null);
+
+                    // Set the cropped bitmap as the new bitmap
+                    croppedImage.Recycle();
+                    croppedImage = b;
+                }
+            }
+
+            // Return the cropped image directly or save it to the specified URI.
+            Bundle myExtras = Intent.Extras;
+
+            if (myExtras != null &&
+                (myExtras.GetParcelable("data") != null || myExtras.GetBoolean("return-data")))
+            {
+                Bundle extras = new Bundle();
+                extras.PutParcelable("data", croppedImage);
+                SetResult(Result.Ok,
+                          (new Intent()).SetAction("inline-data").PutExtras(extras));
+                Finish();
+            }
+            else
+            {
+                Bitmap b = croppedImage;
+                BackgroundJob.StartBackgroundJob(this, null, "Saving image", () => SaveOutput(b), mHandler);
+            }
+        }
+
+        private void OnSaveClicked(bool isOldMethod)
         {
             // TODO this code needs to change to use the decode/crop/encode single
             // step api so that we don't require that the whole (possibly large)

@@ -40,7 +40,8 @@ namespace com.bytewild.imaging.cropper
 
         private RectF imageRect;  // in image space
         private RectF cropRect;  // in image space -- TODO: will become obsolete
-        private MCvBox2D cropBox; // in image space
+      //  private MCvBox2D cropBox; // in image space
+        private CropPolygon cropPolygon;
         public Matrix matrix;
 
 
@@ -111,15 +112,6 @@ namespace com.bytewild.imaging.cropper
         {
             get;
             private set;
-        }
-
-        // Returns the cropping box in image space.
-        public MCvBox2D CropBox
-        {
-            get
-            {
-                return cropBox;
-            }
         }
 
         public ModifyMode Mode
@@ -420,12 +412,12 @@ namespace com.bytewild.imaging.cropper
         }
 
         // TODO:  We dont really want both a croprect and cropbox
-        public void Setup(Matrix m, Rect imageRect, RectF cropRect, MCvBox2D cropBox, bool maintainAspectRatio)
+        public void Setup(Matrix m, Rect imageRect, RectF cropRect, CropPolygon cropPolygon, bool maintainAspectRatio)
         {
             matrix = new Matrix(m);
 
             this.cropRect = cropRect;
-            this.cropBox = cropBox;
+            this.cropPolygon = cropPolygon;
             this.imageRect = new RectF(imageRect);
             this.maintainAspectRatio = maintainAspectRatio;
 
@@ -584,8 +576,7 @@ namespace com.bytewild.imaging.cropper
 
         private float[] ComputeBoxLayout() // TODO:  What should this really return?
         {
-           
-            var verts = ConvexHull.CH2(new List<System.Drawing.PointF>(cropBox.GetVertices()));
+            var verts = cropPolygon.GetOrderedVertices();
             var points = new float[(verts.Count * 2)];
 
             int i = 0;
@@ -602,9 +593,7 @@ namespace com.bytewild.imaging.cropper
 
         private List<System.Drawing.PointF> GetVerticesFromPoints(float[] points)
         {
-            // TODO:  This is ugly
-            var verts = ConvexHull.CH2(new List<System.Drawing.PointF>(cropBox.GetVertices()));
-            var cp = verts.ToArray();
+            var cp = cropPolygon.GetOrderedVertices().ToArray();
             int i = 0;
             for (int j = 0; j < cp.Length; j++ )
             {

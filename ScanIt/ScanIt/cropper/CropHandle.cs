@@ -27,5 +27,6 @@ namespace com.bytewild.imaging.cropper
             Y = y;
             Handle = handle;
         }
+
     }
 }

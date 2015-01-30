@@ -75,6 +75,7 @@
   <ItemGroup>
     <Compile Include="cropper\ConvexHull.cs" />
     <Compile Include="cropper\CropHandle.cs" />
+    <Compile Include="cropper\CropPolygon.cs" />
     <Compile Include="cropper\ImageProcessor.cs" />
     <Compile Include="SelectImageActivityBase.cs" />
     <Compile Include="cropper\BackgroundJob.cs" />

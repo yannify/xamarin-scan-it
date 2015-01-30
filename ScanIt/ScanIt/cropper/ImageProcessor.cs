@@ -34,7 +34,7 @@ namespace com.bytewild.imaging.cropper
         {
            using( var image = new Image<Bgr, Byte>(imageBitmap))
            {
-               using(var edgeImage = GetImageAsEdges(image))
+               using(var edgeImage = GetImageOutline(image))
                {
                    var boxes = GetQuadrilaterals(edgeImage);
                    var box = GetLargestQuadrilateral(boxes);
@@ -50,7 +50,7 @@ namespace com.bytewild.imaging.cropper
         {
             using (var image = new Image<Bgr, Byte>(imageBitmap))
             {
-                using (var edgeImage = GetImageAsEdges(image))
+                using (var edgeImage = GetImageOutline(image))
                 {
                     var boxes = GetQuadrilaterals(edgeImage);
                     return GetLargestQuadrilateral(boxes);
@@ -58,7 +58,20 @@ namespace com.bytewild.imaging.cropper
             }
         }
 
-        public Image<Gray, Byte> GetImageAsEdges(Image<Bgr, Byte> image)
+        public CropPolygon GetCropPolygon()
+        {
+            using (var image = new Image<Bgr, Byte>(imageBitmap))
+            {
+                using (var edgeImage = GetImageOutline(image))
+                {
+                    var polys = GetPolygons(edgeImage);
+                    return GetLargestPolygon(polys);
+
+                }
+            }
+        }
+
+        private Image<Gray, Byte> GetImageOutline(Image<Bgr, Byte> image)
         {
             // Convert to GreyScale
             Image<Gray, Byte> imageGray = image.Convert<Gray, Byte>().PyrDown().PyrUp();
@@ -181,6 +194,48 @@ namespace com.bytewild.imaging.cropper
             }
 
             return largestRect;
+        }
+
+        private List<CropPolygon> GetPolygons(Image<Gray, Byte> image)
+        {
+            //List to store rectangles
+            List<CropPolygon> polyList = new List<CropPolygon>();
+
+            using (MemStorage storage1 = new MemStorage())
+                for (Contour<System.Drawing.Point> contours1 = image.FindContours(); contours1 != null; contours1 = contours1.HNext)
+                {
+                    //Polygon Approximations
+                    Contour<System.Drawing.Point> contoursAP = contours1.ApproxPoly(contours1.Perimeter * 0.015, storage1);  // 0.05
+                    //Use area to wipe out the unnecessary result
+                    if (contours1.Area >= 200)
+                    {
+                        //Use vertices to determine the shape
+                        if (contoursAP.Total >= 4)  // > 4
+                        {
+
+                            System.Drawing.Point[] points = contoursAP.ToArray();
+                            polyList.Add(new CropPolygon(points));
+                        }
+                    }
+                }
+
+            return polyList;
+        }
+
+        private CropPolygon GetLargestPolygon(List<CropPolygon> polyList)
+        {
+            double maxArea = 0;
+            CropPolygon largetPoly = new CropPolygon();
+            foreach (CropPolygon p in polyList)
+            {
+                if (maxArea < p.Area())
+                {
+                    maxArea = p.Area();
+                    largetPoly = p;
+                }
+            }
+
+            return largetPoly;
         }
     }
 }
