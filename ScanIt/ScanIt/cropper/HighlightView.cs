@@ -301,31 +301,33 @@ namespace com.bytewild.imaging.cropper
 
             if (CropHandles.Count == 0)
             {
-                //var verts = ConvexHull.CH2(new List<System.Drawing.PointF>(cropBox.GetVertices()));
-                //verts.RemoveAt(verts.Count - 1);
-
                 var verts = GetVerticesFromPoints(CropBoxDrawPoints);
                 verts.RemoveAt(verts.Count - 1);
 
                 bool firstPass = true;
                 CropHandle cropHandle;
 
-                for (var i = 0; i < verts.Count; i++)
+                var vertCount = verts.Count;
+                if(vertCount > 0)
                 {
-                    if (firstPass)
+                    for (var i = 0; i < vertCount; i++)
                     {
-                        firstPass = false;
-                        path.MoveTo(verts[i].X, verts[i].Y);
-                    }
-                    path.LineTo(verts[i].X, verts[i].Y);
+                        if (firstPass)
+                        {
+                            firstPass = false;
+                            path.MoveTo(verts[i].X, verts[i].Y);
+                        }
+                        path.LineTo(verts[i].X, verts[i].Y);
 
-                    cropHandle = new CropHandle(i, (int)verts[i].X, (int)verts[i].Y, new Rect((int)verts[i].X - handleWidth, (int)verts[i].Y - handleHeight, (int)verts[i].X + handleWidth, (int)verts[i].Y + handleHeight));
-                    CropHandles.Add(cropHandle);
-                    resizeDrawableHandle.SetBounds(cropHandle.Handle.Left, cropHandle.Handle.Top, cropHandle.Handle.Right, cropHandle.Handle.Bottom);
-                    resizeDrawableHandle.Draw(canvas);
+                        cropHandle = new CropHandle(i, (int)verts[i].X, (int)verts[i].Y, new Rect((int)verts[i].X - handleWidth, (int)verts[i].Y - handleHeight, (int)verts[i].X + handleWidth, (int)verts[i].Y + handleHeight));
+                        CropHandles.Add(cropHandle);
+                        resizeDrawableHandle.SetBounds(cropHandle.Handle.Left, cropHandle.Handle.Top, cropHandle.Handle.Right, cropHandle.Handle.Bottom);
+                        resizeDrawableHandle.Draw(canvas);
+                    }
+                    // draw one last line to close the gap
+                    path.LineTo(verts[0].X, verts[0].Y);
                 }
-                // draw one last line to close the gap
-                path.LineTo(verts[0].X, verts[0].Y);
+                
             }
             else
             {
@@ -351,67 +353,6 @@ namespace com.bytewild.imaging.cropper
 
             canvas.Restore();
             canvas.DrawPath(path, outlinePaint);
-        }
-
-        public void Draw(Canvas canvas, string obsoleteMethod)
-        {
-            canvas.Save();
-
-            // old way
-            Rect viewDrawingRect = new Rect();
-            context.GetDrawingRect(viewDrawingRect);
-
-            outlinePaint.Color = Color.White;// new Color(0XFF, 0xFF, 0x8A, 0x00);
-            focusPaint.Color = new Color(50, 50, 50, 125);
-
-            Path path = new Path();
-            path.AddRect(new RectF(DrawRect), Path.Direction.Cw);
-
-            canvas.ClipPath(path, Region.Op.Difference);
-            canvas.DrawRect(viewDrawingRect, focusPaint);
-
-            canvas.Restore();
-            canvas.DrawPath(path, outlinePaint);
-
-            // new way
-            outlinePaint.Color = Color.Blue;// new Color(0XFF, 0xFF, 0x8xamarin-scan-itA, 0x00);
-
-            Path pathNew = new Path();
-
-            // Stuff to show the handles
-            int handleHeight = resizeDrawableHandle.IntrinsicHeight / 2;
-            int handleWidth = resizeDrawableHandle.IntrinsicWidth / 2;
-
-           // var verts = ConvexHull.CH2(new List<System.Drawing.PointF>(cropBox.GetVertices()));
-            var foo = ConvexHull.CH2(new List<System.Drawing.PointF>(cropBox.GetVertices()));
-            var verts = GetVerticesFromPoints(CropBoxDrawPoints);
-            verts.RemoveAt(verts.Count - 1);
-
-            bool firstPass = true;
-            CropHandle cropHandle;
-
-            for (var i = 0; i < verts.Count; i++)
-            {
-                if (firstPass)
-                {
-                    firstPass = false;
-                    pathNew.MoveTo(verts[i].X, verts[i].Y);
-                }
-                pathNew.LineTo(verts[i].X, verts[i].Y);
-
-                cropHandle = new CropHandle(i, (int)verts[i].X, (int)verts[i].Y, new Rect((int)verts[i].X - handleWidth, (int)verts[i].Y - handleHeight, (int)verts[i].X + handleWidth, (int)verts[i].Y + handleHeight));
-                CropHandles.Add(cropHandle);
-                resizeDrawableHandle.SetBounds(cropHandle.Handle.Left, cropHandle.Handle.Top, cropHandle.Handle.Right, cropHandle.Handle.Bottom);
-                resizeDrawableHandle.Draw(canvas);
-            }
-            // draw one last line to close the gap
-            pathNew.LineTo(verts[0].X, verts[0].Y);
-
-            canvas.ClipPath(pathNew, Region.Op.Difference);
-            canvas.DrawRect(viewDrawingRect, focusPaint);
-
-            canvas.Restore();
-            canvas.DrawPath(pathNew, outlinePaint);
         }
 
         // Determines which edges are hit by touching at (x, y).
@@ -630,7 +571,7 @@ namespace com.bytewild.imaging.cropper
         }
 
         // Maps the cropping rectangle from image space to screen space.
-        private Rect computeLayout()
+        private Rect computeLayout()  // TODO: Remove this
         {
             RectF r = new RectF(cropRect.Left, cropRect.Top,
                                 cropRect.Right, cropRect.Bottom);
@@ -641,7 +582,7 @@ namespace com.bytewild.imaging.cropper
             return p;
         }
 
-        private float[] ComputeBoxLayout()
+        private float[] ComputeBoxLayout() // TODO:  What should this really return?
         {
            
             var verts = ConvexHull.CH2(new List<System.Drawing.PointF>(cropBox.GetVertices()));
