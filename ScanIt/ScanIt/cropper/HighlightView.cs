@@ -294,7 +294,9 @@ namespace com.bytewild.imaging.cropper
             if (CropHandles.Count == 0)
             {
                 var verts = GetVerticesFromPoints(CropBoxDrawPoints);
-                verts.RemoveAt(verts.Count - 1);
+
+                if(verts.Count > 0)
+                    verts.RemoveAt(verts.Count - 1);
 
                 bool firstPass = true;
                 CropHandle cropHandle;
@@ -577,6 +579,7 @@ namespace com.bytewild.imaging.cropper
         private float[] ComputeBoxLayout() // TODO:  What should this really return?
         {
             var verts = cropPolygon.GetOrderedVertices();
+           
             var points = new float[(verts.Count * 2)];
 
             int i = 0;

@@ -68,7 +68,11 @@ namespace com.bytewild.imaging.cropper
 
         public List<System.Drawing.PointF> GetOrderedVertices()
         {
-             return ConvexHull.CH2(new List<System.Drawing.PointF>(this.Vertices));
+            var points = ConvexHull.CH2(new List<System.Drawing.PointF>(this.Vertices));
+            
+            if (points == null)
+                points = new List<System.Drawing.PointF>();
+            return points;
         }
     }
 }
