@@ -1,5 +1,5 @@
 # xamarin-scan-it
-An Android app that allows you to take a picture / select from gallery of object.  It will add crop handles and outline the largest rectangle.
+An Android app that allows you to take a picture / select from gallery of object.  It will add crop handles and outline the largest polygon.
 
 Uses:
 -- Take a picture of a piece of paper and then crop the image.  
